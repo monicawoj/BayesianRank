@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<link href="style.css" type="text/css" rel="stylesheet" />
+<title>Bayesian Blend-Your-Own Rank Tool</title>
+
+<body>
+  <h1>Bayesian Power Ranking Tool</h1>
+  <div class="label_holder">
+    <label for="nAngle" 
+    style="display: inline-block; width: 25%; text-align: right">
+    Weight of Prior (%) =
+  </label>
+  <input type="number" min="0" max="100" value = "50" id="weight" oninput="update_weight()" style= "font: 14pt Helvetica Neue; width:5.5ch; height: 2em;">
+</div>
+<div class="left-half" style="width:50%; display:inline-block;" style = "font: 10pt Helvetica Neue">
+  <svg class= "lines2"></svg>   
+</div>
+
+<div class="right-half" style="width:45%; vertical-align: top; height: 432px; display:inline-block; overflow:scroll;">
+  <table class="left_table"></table>
+  <table class="right_table"></table>
+</div>
+
+<h3><strong>How to use the tool:&nbsp;</strong></h3>
+<ol>
+  <li>Choose how much weight you would like prior team ranks to have on your ranking.</li>
+  <li>Input your desired weighting in input field.</li>
+  <li>The table will automatically sort itself based on the weight you choose.</li>
+  <li>The purple line on the graphic&nbsp;reveals&nbsp;your choice of weight of priors.</li>
+</ol>
+<p><em>Note</em>: Weight of Priors = 0% corresponds to current In-Season ranks; Weight of Priors = 100% corresponds to Priors ranks.</p>
+
+</body>
+
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+
+//Define variables/scales for line graph
+var margin1 = {top: 30, right: 60, bottom: 20, left: 60};
+    width1 = 600 - margin1.left - margin1.right,
+    height1 = 400 - margin1.top - margin1.bottom;
+var color = d3.scale.category10();
+var x = d3.scale.linear().domain([100,0]).range([0, width1]);
+var y = d3.scale.linear().domain([128,1]).range([height1, 0]);
+var xAxis = d3.svg.axis().scale(x)
+    .orient("bottom").ticks(10);
+var yAxisLeft = d3.svg.axis().scale(y)
+    .orient("left").tickValues([1,10,20,30,40,50,60,70,80,90,100,110,120,128]);
+var yAxisRight = d3.svg.axis().scale(y)
+    .orient("right").tickValues([1,10,20,30,40,50,60,70,80,90,100,110,120,128]); 
+//Add the svg canvas for line chart 
+var svg = d3.select(".lines2")
+        .style("float","left")
+        .attr("width", width1 + margin1.left + margin1.right)
+        .attr("height", height1 + 10 + margin1.top + margin1.bottom)
+            .append("g")
+            .attr("transform", 
+              "translate(" + margin1.left + "," + margin1.top + ")");
+
+//For dynamic table 1
+  var right_table = d3.select(".right_table").style("float","left").attr("class","right_table");
+  var thead1 = right_table.append("thead");
+  var tbody1 = right_table.append("tbody");
+  var columns = ["Team", "Prior", "In-Season"];
+  var colors = ["black", "blue", "red"];
+
+//Define variables/values for the two tables
+//For static table 2
+var left_table = d3.select(".left_table").style("float","left").attr("class","left_table");
+var thead2 = left_table.append("thead");
+var tbody2 = left_table.append("tbody");
+var columns2 = ["Rank"];
+var weight;
+
+// Get the data
+d3.csv("rank.csv", function(error, data) {
+    data.forEach(function(d) {
+        d.Rank = d.Rank;
+    });
+
+  var rank_data = data;
+  var colour = ["black","blue","red"];
+
+  thead2.append("tr")
+    .selectAll("th")
+    .data(columns2)
+    .enter()
+    .append("th")
+    .text(function(column) { return column; });
+
+
+  tbody2.selectAll("tr")
+    .data(rank_data, function (d) {return d.Rank;})
+    .enter()
+    .append("tr")
+    .selectAll("td")
+    .data(function (d) {return [d.Rank];})
+    .enter()
+    .append("td")
+    .text(function(d) { return d; });
+});
+
+// Get the data
+d3.csv("blend_data.csv", function(error, data) {
+    data.forEach(function(d,i) {
+        d.Team = d.Team;
+        d.Prior = +d.Prior;
+        d.In_Season = +d.In_Season;
+        d.Blend = +d.Blend;
+    });
+
+  var table_data = data;
+  weight = document.getElementById("weight").value;
+
+  var lines = svg.selectAll("line")
+     .data(table_data)
+     .enter()
+     .append("line")
+     .attr("x1", function(d){return x(100);})
+     .attr("y1", function(d){return y(d.Prior);})
+     .attr("x2", function(d){return x(100);})
+     .attr("y2", function(d){return y(d.Prior);})
+     .style("stroke","lightgrey")
+     .attr("stroke-width", 1)
+     .transition()
+     .duration(400)
+     .attr("x2", function(d){return x(0);})
+     .attr("y2", function(d){return y(d.In_Season);});
+
+    //Add the x, y1, and y2 axis
+    svg.append("g")     
+        .attr("class", "x axis")
+        .style("fill", "#4c5454")
+        .attr("transform", "translate(0," + height1 + ")")
+        .call(xAxis)
+        .append("text")
+        .style("text-anchor", "middle")
+        .attr("y", 45)
+        .attr("x",width1/2)
+        .text("Weight of Prior (%)");
+    svg.append("g")
+        .attr("class", "y axis")
+        .style("fill", "steelblue")
+        .call(yAxisLeft)
+        .append("text")
+        .style("text-anchor", "middle")
+        .attr("y", -10)
+        .text("Prior Rank");   
+    svg.append("g")             
+        .attr("class", "y axis")    
+        .attr("transform", "translate(" + width1 + " ,0)")   
+        .style("fill", "red")       
+        .call(yAxisRight)
+        .append("text")
+        .style("text-anchor", "middle")
+        .attr("y", -10)
+        .text("In-Season Rank");
+
+//Add moving line
+  svg.append("line")
+    .attr("id","moving_line")
+    .attr("x1",function(d){return x(weight);})
+    .attr("y1",function(d){return y(0);})
+    .attr("x2",function(d){return x(weight);})
+    .attr("y2",function(d){return y(128);});
+
+  thead1.append("tr")
+    .selectAll("th")
+    .data(columns)
+    .enter()
+    .append("th")
+    .text(function(column) { return column; });
+
+  tbody1.selectAll("tr")
+    .data(table_data, function (d) {return d.Team;})
+    .enter()
+    .append("tr")
+    .sort(function(a, b) {
+        return d3.ascending(a.Blend, b.Blend);})
+    .selectAll("td")
+    .data(function (d) {return [d.Team, d.Prior, d.In_Season];})
+    .enter()
+    .append("td")
+    .text(function(d) { return d; });
+
+});
+
+  function update_weight() {
+    
+    weight = document.getElementById("weight").value;
+
+    // adjust the text on the input
+  d3.select("#weight-value").text(weight);
+  d3.select("#weight").property("value", weight);
+
+// Get the data again
+    d3.csv("blend_data.csv", function(error, data) {
+    data.forEach(function(d,i) {
+        d.Rank = function(d,i) {return 1+d};
+        d.Team = d.Team;
+        d.Prior = +d.Prior;
+        d.In_Season = +d.In_Season;
+        d.Blend = +(weight/100*(+d.Prior))+((1-(weight/100))*(+d.In_Season));
+    });
+
+    var newdata = data;
+
+    // update the moving line
+     svg.select("#moving_line") 
+    .attr("x1", function(d){return x(weight);})
+    .attr("x2", function(d){return x(weight);});
+
+    var rows = right_table.selectAll("tbody tr")
+    .data(newdata, function (d) {return d.Team;})
+    .sort(function(a, b) {
+        return d3.ascending(a.Blend, b.Blend);
+        });
+    
+    rows.enter()
+    .append('tr')
+    .selectAll("td")
+    .data(function (d) {return [d.Team, d.Prior, d.In_Season];})
+    .enter()
+    .append("td")
+    .text(function(d) { return d; });
+    
+    rows.exit().remove();
+    
+    var cells = rows.selectAll('td')
+    .data(function (d) {return [d.Team, d.Prior, d.In_Season];})
+    .text(function (d) {return d;})
+    .style("fill", function(d,i) {return colors[i]});
+    
+    cells.enter()
+    .append("td")
+    .text(function(d) { return d; });
+    
+    cells.exit().remove();
+});
+
+};
+
+</script>
+<footer>
+  <aside> Visualization created for Massey-Peabody using <a href="http://d3js.org">D3.js</a>, <a href="http://opensource.org/licenses/BSD-3-Clause">Terms of use</a>.</aside>
+  Copyright Monica Wojciechowski, 2016.
+</footer>
+</html>
